@@ -1,0 +1,16 @@
+.hidden {
+  display: none;
+}
+
+th {
+  background-color: lightcoral;
+}
+
+td {
+  padding: 4px;
+}
+
+td:nth-child(4), td:nth-child(5) {
+  text-align: center;
+  background-color: lightblue;
+}

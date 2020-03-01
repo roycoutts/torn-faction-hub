@@ -1,0 +1,222 @@
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link rel="stylesheet" type="text/css" href="styles.css" />
+  <script type="text/javascript" src="https://roughgiraffes.github.io/torn/torn.js"></script>
+</head>
+
+<body>
+  <div id="init">
+    <label for="inputAPIKey">API Key</label>
+    <input id="inputAPIKey" placeholder="API Key" />
+    <button onclick="init()">Init</button>
+  </div>
+  <div id="app" class="hidden">
+    <div>Competition from <strong>00:00:00 28/02/2020</strong> - <strong>06/03/2020</strong></div>
+    <table>
+      <thead>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Last Action</th>
+        <th>Attacks</th>
+        <th>Respect Gained</th>
+      </thead>
+      <tbody id="members"></tbody>
+    </table>
+  </div>
+</body>
+<script>
+  const startDate = '2020-02-28';
+  const endDate = '2020-03-06';
+
+  let torn;
+  let faction;
+  let members = [];
+  let attacks = [];
+
+  function init() {
+    const key = document.getElementById('inputAPIKey').value;
+    torn = new Torn({ API_Key: key });
+
+    // Promise.all([
+    //   torn.faction.attacksfull(),
+    //   torn.faction.basic()
+    // ]).then((result) => {
+    //   console.log(result);
+    //   alert();
+
+    //   // document.getElementById('init').classList.add('hidden');
+    //   // document.getElementById('app').classList.remove('hidden');
+
+    //   // members = dictionaryToArrayById(result.members);
+    //   // console.log(members)
+    //   // writeMembers();
+    // }, (err) => {
+    //   alert();
+
+    //   console.log(err);
+    //   // HANDLE ERROR HERE
+    // });
+
+    Promise.all([
+      fetch(`https://api.torn.com/faction/?selections=basic&key=${key}`).then(resp => resp.json()),
+      fetch(`https://api.torn.com/faction/?selections=attacksfull&key=${key}`).then(resp => resp.json())
+    ]).then((result) => {
+      // Faction
+      faction = result[0];
+      console.log(faction);
+      members = dictionaryToArrayById(result[0].members);
+      console.log(members);
+
+      // Attacks
+      attacks = dictionaryToArrayById(result[1].attacks);
+      console.log(attacks);
+      console.log(attacks.length);
+      attacks = filterAttacks(faction, attacks);
+      console.log(attacks.length);
+
+      // Add Attacks
+      const players = [];
+
+      attacks.forEach(attack => {
+        if (players.includes(attack.attacker_id) === false) {
+          players.push(attack.attacker_id);
+        }
+      });
+      console.log('Total Players: ' + players.length);
+
+      const output = [];
+      players.forEach(p => {
+
+        let respect = 0;
+        attacks.filter(attack => attack.attacker_id === p).forEach(a => {
+          respect += +(a.respect_gain);
+        })
+
+        output.push({
+          id: p,
+          respect: respect,
+          total: attacks.filter(attack => attack.attacker_id === p).length
+        });
+      });
+
+      console.log(output);
+
+      members.forEach(member => {
+        output.forEach(output => {
+          if(member.id == output.id){
+            member.attacks = output.total;
+            member.respect = Math.floor(output.respect);
+          }
+        });
+      });
+
+
+
+      // Write
+      document.getElementById('init').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      parseMembers();
+      sortMembers();
+      writeMembers();
+    });
+  }
+
+  function parseMembers(){
+    members.forEach(member => {
+      if (typeof member.attacks === 'undefined'){
+        member.attacks = 0;
+      }
+      if (typeof member.respect === 'undefined'){
+        member.respect = 0;
+      }
+    });
+  }
+
+  function sortMembers(){
+    members = members.sort((a,b) => {
+      return a.attacks < b.attacks;
+    })
+  }
+
+  function writeMembers() {
+    const output = document.getElementById('members');
+
+    members.forEach(member => {
+      output.innerHTML += `
+        <tr>
+          <td>${member.id}</td>
+          <td>${member.name}</td>
+          <td>${member.last_action.relative}</td>
+          <td>${member.attacks}</td>
+          <td>${member.respect}</td>
+        </tr>
+      `
+    })
+  }
+
+  function dictionaryToArrayById(object) {
+    const objects = [];
+
+    for (let key in object) {
+      if (object.hasOwnProperty(key)) {
+
+        const val = object[key];
+        val.id = key;
+
+        objects.push(val);
+      }
+    }
+
+    return objects;
+  }
+
+  function filterAttacks(faction, attacks) {
+    const start = Math.floor(new Date(startDate).getTime() / 1000);
+    const end = Math.floor(new Date(endDate).getTime() / 1000);
+
+    return attacks.filter(attack => {
+      return (
+        attack.attacker_faction == faction.ID
+        && attack.defender_faction != faction.ID
+        && attack.result != 'Lost'
+        && attack.result != 'Escape'
+        && attack.result != 'Special'
+        && attack.result != 'Assist'
+        && attack.result != 'Stalemate'
+        && attack.timestamp_ended >= start
+        && attack.timestamp_ended <= end
+      );
+    });
+  }
+
+
+  /*
+  let results = [];
+  attacks.forEach(attack => {
+    results.push(attack.result);
+  });
+  results = results.filter(onlyUnique);
+  console.log(results);
+  function onlyUnique(value, index, self) {
+    return self.indexOf(value) === index;
+  }
+
+    2: "Attacked"
+    0: "Mugged"
+    3: "Hospitalized"
+
+    1: "Lost"
+    4: "Escape"
+    5: "Special"
+    6: "Assist"
+    7: "Stalemate"
+  */
+
+
+</script>
+
+</html>
